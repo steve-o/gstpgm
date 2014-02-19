@@ -1,5 +1,5 @@
 
-#define VERSION			"0.0.1"
+#define VERSION			"0.0.2"
 #define PACKAGE_NAME		"gstpgm"
 #define PACKAGE			PACKAGE_NAME
 
@@ -8,8 +8,8 @@
 #define PGM_UDP_ENCAP_PORT	3056
 #define PGM_URI			"pgm://"PGM_NETWORK":"G_STRINGIFY(PGM_PORT)":"G_STRINGIFY(PGM_UDP_ENCAP_PORT)
 #define PGM_MAX_TPDU            1500
-#define PGM_TXW_SQNS            32
-#define PGM_RXW_SQNS            32
+#define PGM_TXW_SQNS            64
+#define PGM_RXW_SQNS            64
 #define PGM_HOPS                16
 #define PGM_SPM_AMBIENT         ( pgm_secs(30) )
 #define PGM_IHB_MIN		( pgm_msecs(100) )

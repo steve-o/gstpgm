@@ -33,6 +33,7 @@ enum
     PROP_NETWORK = 1,
     PROP_PORT,
     PROP_URI,
+    PROP_CAPS,
     PROP_UDP_ENCAP_PORT,
     PROP_MAX_TPDU,
     PROP_HOPS,
@@ -67,6 +68,7 @@ GST_BOILERPLATE (GstPgmSrc, gst_pgm_src, GstPushSrc, GST_TYPE_PUSH_SRC)
 
 static gboolean gst_pgm_src_set_uri (GstPgmSrc*, const gchar*);
 static void gst_pgm_src_uri_handler_init (gpointer, gpointer);
+static GstCaps* gst_pgm_src_get_caps (GstBaseSrc*);
 static GstFlowReturn gst_pgm_src_create (GstPushSrc*, GstBuffer**);
 static gboolean gst_pgm_client_src_stop (GstBaseSrc*);
 static gboolean gst_pgm_client_src_start (GstBaseSrc*);
@@ -202,6 +204,7 @@ gst_pgm_src_class_init (
     GstBaseSrcClass* gstbasesrc_class = (GstBaseSrcClass*)klass;
     gstbasesrc_class->start	= gst_pgm_client_src_start;
     gstbasesrc_class->stop	= gst_pgm_client_src_stop;
+    gstbasesrc_class->get_caps  = gst_pgm_src_get_caps;
     GstPushSrcClass* gstpushsrc_class = (GstPushSrcClass*)klass;
     gstpushsrc_class->create	= gst_pgm_src_create;
 
@@ -216,7 +219,7 @@ gst_pgm_src_class_init (
 	    "Network",
 	    "Rendezvous style multicast network definition.",
 	    PGM_NETWORK,
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_PORT,
 	g_param_spec_uint (
 	    "dport",
@@ -225,14 +228,21 @@ gst_pgm_src_class_init (
 	    0,				/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_PORT,			/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_URI,
 	g_param_spec_string (
 	    "uri",
 	    "URI",
 	    "URI in the form of pgm://adapter;receive-multicast-groups;send-multicast-group:destination-port:udp-encapsulation-port",
 	    PGM_URI,
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
+    g_object_class_install_property (gobject_class, PROP_CAPS,
+	g_param_spec_boxed (
+	    "caps",
+	    "CAPS",
+	    "The caps of the source pad",
+	    GST_TYPE_CAPS,
+	    G_PARAM_READWRITE));
     g_object_class_install_property (gobject_class, PROP_UDP_ENCAP_PORT,
 	g_param_spec_uint (
 	    "udp-encap-port",
@@ -241,7 +251,7 @@ gst_pgm_src_class_init (
 	    0,				/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_UDP_ENCAP_PORT,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_MAX_TPDU,
 	g_param_spec_uint (
 	    "max-tpdu",
@@ -250,7 +260,7 @@ gst_pgm_src_class_init (
 	    (sizeof(struct iphdr) + sizeof(struct pgm_header)),	/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_MAX_TPDU,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_HOPS,
 	g_param_spec_uint (
 	    "hops",
@@ -259,7 +269,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT8_MAX,			/* maximum */
 	    PGM_HOPS,			/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_RXW_SQNS,
 	g_param_spec_uint (
 	    "rxw-sqns",
@@ -268,7 +278,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_RXW_SQNS,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_PEER_EXPIRY,
 	g_param_spec_uint (
 	    "peer-expiry",
@@ -277,7 +287,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_PEER_EXPIRY,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_SPMR_EXPIRY,
 	g_param_spec_uint (
 	    "spmr-expiry",
@@ -286,7 +296,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_SPMR_EXPIRY,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_NAK_BO_IVL,
 	g_param_spec_uint (
 	    "nak-bo-ivl",
@@ -295,7 +305,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_NAK_BO_IVL,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_NAK_RPT_IVL,
 	g_param_spec_uint (
 	    "nak-rpt-ivl",
@@ -304,7 +314,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_NAK_RPT_IVL,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_NAK_RDATA_IVL,
 	g_param_spec_uint (
 	    "nak-data-ivl",
@@ -313,7 +323,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_NAK_RDATA_IVL,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_NAK_DATA_RETRIES,
 	g_param_spec_uint (
 	    "nak-data-retries",
@@ -322,7 +332,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_NAK_DATA_RETRIES,	/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_NAK_NCF_RETRIES,
 	g_param_spec_uint (
 	    "nak-ncf-retries",
@@ -331,7 +341,7 @@ gst_pgm_src_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_NAK_NCF_RETRIES,	/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
 }
 
 /* GObject::instance_init ???
@@ -359,7 +369,10 @@ gst_pgm_src_init (
     src->nak_data_retries   = PGM_NAK_DATA_RETRIES;
     src->nak_ncf_retries    = PGM_NAK_NCF_RETRIES;
 
+/* ensure source provides live, time based output, with timestamps */
     gst_base_src_set_live (GST_BASE_SRC (src), TRUE);
+    gst_base_src_set_format (GST_BASE_SRC (src), GST_FORMAT_TIME);
+    gst_base_src_set_do_timestamp (GST_BASE_SRC (src), TRUE);
 }
 
 /* GObject::finalize
@@ -371,10 +384,25 @@ gst_pgm_src_finalize (
 {
     GstPgmSrc* src = GST_PGM_SRC (object);
 
+    if (src->caps)
+	gst_caps_unref (src->caps);
     g_free (src->network);
     g_free (src->uri);
 
     G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static GstCaps*
+gst_pgm_src_get_caps (
+	GstBaseSrc*	    basesrc
+	)
+{
+    GstPgmSrc* src = GST_PGM_SRC (basesrc);
+
+    if (src->caps)
+	return gst_caps_ref (src->caps);
+    else
+	return gst_caps_new_any ();
 }
 
 /* GObject::set_property
@@ -411,6 +439,16 @@ gst_pgm_src_set_property (
     case PROP_URI:
 	gst_pgm_src_set_uri (src, g_value_get_string (value));
 	break;
+    case PROP_CAPS:
+    {
+	const GstCaps* new_caps_value = gst_value_get_caps (value);
+	GstCaps* new_caps = new_caps_value ? gst_caps_copy (new_caps_value) : gst_caps_new_any();
+	GstCaps* old_caps = src->caps;
+	src->caps = new_caps;	
+	if (old_caps) gst_caps_unref (old_caps);
+	gst_pad_set_caps (GST_BASE_SRC (src)->srcpad, new_caps);
+	break;
+    }
     case PROP_MAX_TPDU:
 	src->max_tpdu = g_value_get_uint (value);
 	break;
@@ -470,6 +508,9 @@ gst_pgm_src_get_property (
 	break;
     case PROP_URI:
 	g_value_set_string (value, src->uri);
+	break;
+    case PROP_CAPS:
+	gst_value_set_caps (value, src->caps);
 	break;
     case PROP_MAX_TPDU:
 	g_value_set_uint (value, src->max_tpdu);
@@ -541,6 +582,8 @@ g_message ("len = %i", (int)len);
 	i++;
     }
 
+    gst_buffer_set_caps (GST_BUFFER_CAST (*buffer), src->caps);
+
     return GST_FLOW_OK;
 }
 
@@ -559,23 +602,23 @@ gst_pgm_client_src_start (
 	return FALSE;
     }
 
-    struct pgm_sock_mreq recv_smr, send_smr;
-    int smr_len = 1;
-    if (0 != pgm_if_parse_transport (src->network, AF_INET, &recv_smr, &send_smr, &smr_len)) {
+    struct group_source_req recv_gsr, send_gsr;
+    int gsr_len = 1;
+    if (0 != pgm_if_parse_transport (src->network, AF_INET, &recv_gsr, &send_gsr, &gsr_len)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot parse network parameter"));
 	return FALSE;
     }
-    if (1 != smr_len) {
+    if (1 != gsr_len) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("parsing network parameter found more than one device"));
 	return FALSE;
     }
 
-    ((struct sockaddr_in*)&send_smr.smr_multiaddr)->sin_port = g_htons (src->udp_encap_port);
-    ((struct sockaddr_in*)&recv_smr.smr_interface)->sin_port = g_htons (src->udp_encap_port);
+    ((struct sockaddr_in*)&send_gsr.gsr_group)->sin_port = g_htons (src->udp_encap_port);
+    ((struct sockaddr_in*)&recv_gsr.gsr_source)->sin_port = g_htons (src->udp_encap_port);
 
-    if (0 != pgm_transport_create (&src->transport, &gsi, src->port, &recv_smr, 1, &send_smr)) {
+    if (0 != pgm_transport_create (&src->transport, &gsi, src->port, &recv_gsr, 1, &send_gsr)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot create transport"));
 	return FALSE;

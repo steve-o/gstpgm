@@ -9,7 +9,8 @@ env = Environment(ENV = os.environ,
         LINKFLAGS = ['-pipe'],
 	LIBS = ['libpgmplus-pic'],
 	CPPPATH = ['/miru/projects/openpgm/pgm/include'],
-	LIBPATH = ['/miru/projects/openpgm/pgm/ref/debug']
+#	LIBPATH = ['/miru/projects/openpgm/pgm/ref/debug']
+	LIBPATH = ['/miru/projects/openpgm/pgm/ref/thirtytwo']
 )
 #env.ParseConfig('pkg-config --cflags --libs glib-2.0 gthread-2.0 gstreamer-0.10');
 env.ParseConfig('pkg-config --cflags --libs glib-2.0 gthread-2.0 gstreamer-base-0.10');

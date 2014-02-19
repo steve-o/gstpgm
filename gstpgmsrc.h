@@ -46,6 +46,7 @@ struct _GstPgmSrc
 {
     GstPushSrc		parent;
     GstPad*		srcpad;
+    GstCaps*		caps;
 
     pgm_transport_t*	transport;
     pgm_msgv_t*		msgv;

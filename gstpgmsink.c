@@ -228,7 +228,7 @@ gst_pgm_sink_class_init (
 	    "Network",
 	    "Rendezvous style multicast network definition.",
 	    PGM_NETWORK,
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_PORT,
 	g_param_spec_uint (
 	    "dport",
@@ -237,14 +237,14 @@ gst_pgm_sink_class_init (
 	    0,				/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_PORT,			/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_URI,
 	g_param_spec_string (
 	    "uri",
 	    "URI",
 	    "URI in the form of pgm://adapter;receive-multicast-groups;send-multicast-group:destination-port:udp-encapsulation-port",
 	    PGM_URI,
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_UDP_ENCAP_PORT,
 	g_param_spec_uint (
 	    "udp-encap-port",
@@ -253,7 +253,7 @@ gst_pgm_sink_class_init (
 	    0,				/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_UDP_ENCAP_PORT,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_MAX_TPDU,
 	g_param_spec_uint (
 	    "max-tpdu",
@@ -262,7 +262,7 @@ gst_pgm_sink_class_init (
 	    (sizeof(struct iphdr) + sizeof(struct pgm_header)),	/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_MAX_TPDU,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_HOPS,
 	g_param_spec_uint (
 	    "hops",
@@ -271,7 +271,7 @@ gst_pgm_sink_class_init (
 	    1,				/* minimum */
 	    UINT8_MAX,			/* maximum */
 	    PGM_HOPS,			/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_TXW_SQNS,
 	g_param_spec_uint (
 	    "txw-sqns",
@@ -280,7 +280,7 @@ gst_pgm_sink_class_init (
 	    1,				/* minimum */
 	    UINT16_MAX,			/* maximum */
 	    PGM_TXW_SQNS,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_SPM_AMBIENT,
 	g_param_spec_uint (
 	    "spm-ambient",
@@ -289,7 +289,7 @@ gst_pgm_sink_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_SPM_AMBIENT,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_IHB_MIN,
 	g_param_spec_uint (
 	    "ihb-min",
@@ -298,7 +298,7 @@ gst_pgm_sink_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_IHB_MIN,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
     g_object_class_install_property (gobject_class, PROP_IHB_MAX,
 	g_param_spec_uint (
 	    "ihb-max",
@@ -307,7 +307,7 @@ gst_pgm_sink_class_init (
 	    1,				/* minimum */
 	    UINT_MAX,			/* maximum */
 	    PGM_IHB_MAX,		/* default */
-	    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	    G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/));
 }
 
 /* GObject::instance_init
@@ -482,23 +482,23 @@ gst_pgm_client_sink_start (
 	return FALSE;
     }
 
-    struct pgm_sock_mreq recv_smr, send_smr;
-    int smr_len = 1;
-    if (0 != pgm_if_parse_transport (sink->network, AF_INET, &recv_smr, &send_smr, &smr_len)) {
+    struct group_source_req recv_gsr, send_gsr;
+    int gsr_len = 1;
+    if (0 != pgm_if_parse_transport (sink->network, AF_INET, &recv_gsr, &send_gsr, &gsr_len)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
 	    ("cannot parse network parameter"));
 	return FALSE;
     }
-    if (1 != smr_len) {
+    if (1 != gsr_len) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
 	    ("parsing network parameter found more than one device"));
 	return FALSE;
     }
 
-    ((struct sockaddr_in*)&send_smr.smr_multiaddr)->sin_port = g_htons (sink->udp_encap_port);
-    ((struct sockaddr_in*)&recv_smr.smr_interface)->sin_port = g_htons (sink->udp_encap_port);
+    ((struct sockaddr_in*)&send_gsr.gsr_group)->sin_port = g_htons (sink->udp_encap_port);
+    ((struct sockaddr_in*)&recv_gsr.gsr_source)->sin_port = g_htons (sink->udp_encap_port);
 
-    if (0 != pgm_transport_create (&sink->transport, &gsi, sink->port, &recv_smr, 1, &send_smr)) {
+    if (0 != pgm_transport_create (&sink->transport, &gsi, sink->port, &recv_gsr, 1, &send_gsr)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
 	    ("cannot create transport"));
 	return FALSE;
