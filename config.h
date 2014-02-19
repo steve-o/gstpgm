@@ -1,9 +1,9 @@
 
-#define VERSION			"0.0.2"
+#define VERSION			"2.0.4"
 #define PACKAGE_NAME		"gstpgm"
 #define PACKAGE			PACKAGE_NAME
 
-#define PGM_NETWORK             ";239.192.0.1"
+#define PGM_NETWORK             "eth0;239.192.0.1"
 #define PGM_PORT                7500
 #define PGM_UDP_ENCAP_PORT	3056
 #define PGM_URI			"pgm://"PGM_NETWORK":"G_STRINGIFY(PGM_PORT)":"G_STRINGIFY(PGM_UDP_ENCAP_PORT)

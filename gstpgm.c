@@ -48,12 +48,9 @@ plugin_init (
 	GstPlugin*	plugin
 	)
 {
-/* non-superuser friendly configuration */
-    setenv ("PGM_TIMER", "GETTIMEOFDAY", TRUE);
-    setenv ("PGM_SLEEP", "USLEEP", TRUE);
-
 /* startup pgm library */
-    pgm_init ();
+    if (!pgm_init (NULL))
+		return FALSE;
 
 /* register GStreamer elements */
     if (!gst_element_register (plugin, "pgmsrc", GST_RANK_NONE, GST_TYPE_PGM_SRC))

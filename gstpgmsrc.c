@@ -559,28 +559,34 @@ gst_pgm_src_create (
 
 /* read in waiting data */
     pgm_msgv_t msgv;
-    gssize len = pgm_transport_recvmsg (src->transport, &msgv, 0);
+    gsize len;
+    GError* err = NULL;
+    const PGMIOStatus status = pgm_recvmsg (src->transport, &msgv, 0, &len, &err);
 
-g_message ("len = %i", (int)len);
-    if (len <= 0) {
+    if (PGM_IO_STATUS_NORMAL != status) {
+puts ("read not normal");
 	GST_ELEMENT_ERROR (src, RESOURCE, READ, (NULL),
-	    ("receive error %d: %s (%d)", len, g_strerror (errno), errno));
+	    ("Receive error: %s)", err->message));
+	g_error_free (err);
 	return GST_FLOW_ERROR;
     }
+
+puts ("good read");
 
 /* try to allocate memory from GStreamer pool */
     *buffer = gst_buffer_new_and_alloc (len);
 
 /* return contiguous copy */
-    guint i = 0;
     guint8* dst = GST_BUFFER_DATA (*buffer);
-    while (len)
+    for (unsigned j = 0; j < msgv.msgv_len; j++)
     {
-	memcpy (dst, msgv.msgv_iov[i].iov_base, msgv.msgv_iov[i].iov_len);
-	dst += msgv.msgv_iov[i].iov_len;
-	len -= msgv.msgv_iov[i].iov_len;
-	i++;
+printf ("copy #%d len %d\n", j, (int)len);
+	memcpy (dst, msgv.msgv_skb[j]->data, msgv.msgv_skb[j]->len);
+	dst += msgv.msgv_skb[j]->len;
+	len -= msgv.msgv_skb[j]->len;
     }
+
+puts ("copy end");
 
     gst_buffer_set_caps (GST_BUFFER_CAST (*buffer), src->caps);
 
@@ -595,92 +601,98 @@ gst_pgm_client_src_start (
 	)
 {
     GstPgmSrc* src = GST_PGM_SRC (basesrc);
-    pgm_gsi_t gsi;
-    if (0 != pgm_create_md5_gsi (&gsi)) {
+    struct pgm_transport_info_t* res = NULL;
+    GError* err = NULL;
+
+    if (!pgm_if_get_transport_info (src->network, NULL, &res, &err)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
-	    ("cannot resolve hostname"));
+	    ("Parsing network parameter: %s", err->message));
+	g_error_free (err);
+	return FALSE;
+    }
+    if (!pgm_gsi_create_from_hostname (&res->ti_gsi, &err)) {
+	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
+	    ("Creating GSI: %s", err->message));
+	g_error_free (err);
+	pgm_if_free_transport_info (res);
 	return FALSE;
     }
 
-    struct group_source_req recv_gsr, send_gsr;
-    int gsr_len = 1;
-    if (0 != pgm_if_parse_transport (src->network, AF_INET, &recv_gsr, &send_gsr, &gsr_len)) {
-	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
-	    ("cannot parse network parameter"));
-	return FALSE;
-    }
-    if (1 != gsr_len) {
-	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
-	    ("parsing network parameter found more than one device"));
-	return FALSE;
-    }
+    res->ti_udp_encap_ucast_port = src->udp_encap_port;
+    res->ti_udp_encap_mcast_port = src->udp_encap_port;
 
-    ((struct sockaddr_in*)&send_gsr.gsr_group)->sin_port = g_htons (src->udp_encap_port);
-    ((struct sockaddr_in*)&recv_gsr.gsr_source)->sin_port = g_htons (src->udp_encap_port);
-
-    if (0 != pgm_transport_create (&src->transport, &gsi, src->port, &recv_gsr, 1, &send_gsr)) {
+    if (!pgm_transport_create (&src->transport, res, &err)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
-	    ("cannot create transport"));
+	    ("Creating transport: %s", err->message));
+	g_error_free (err);
+	pgm_if_free_transport_info (res);
 	return FALSE;
     }
-    if (0 != pgm_transport_set_recv_only (src->transport, FALSE)) {
+    pgm_if_free_transport_info (res);
+
+    if (!pgm_transport_set_recv_only (src->transport, TRUE, FALSE)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set receive-only mode"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_max_tpdu (src->transport, src->max_tpdu)) {
+    if (!pgm_transport_set_max_tpdu (src->transport, src->max_tpdu)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set maximum TPDU size"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_hops (src->transport, src->hops)) {
+    if (!pgm_transport_set_multicast_loop (src->transport, TRUE)) {
+	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
+	    ("cannot set multicast loop"));
+	goto destroy_transport;
+    }
+    if (!pgm_transport_set_hops (src->transport, src->hops)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set IP hop limit"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_rxw_sqns (src->transport, src->rxw_sqns)) {
+    if (!pgm_transport_set_rxw_sqns (src->transport, src->rxw_sqns)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set RXW_SQNS"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_peer_expiry (src->transport, src->peer_expiry)) {
+    if (!pgm_transport_set_peer_expiry (src->transport, src->peer_expiry)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set peer expiration timeout"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_spmr_expiry (src->transport, src->spmr_expiry)) {
+    if (!pgm_transport_set_spmr_expiry (src->transport, src->spmr_expiry)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set SPMR timeout"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_nak_bo_ivl (src->transport, src->nak_bo_ivl)) {
+    if (!pgm_transport_set_nak_bo_ivl (src->transport, src->nak_bo_ivl)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set NAK_BO_IVL"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_nak_rpt_ivl (src->transport, src->nak_rpt_ivl)) {
+    if (!pgm_transport_set_nak_rpt_ivl (src->transport, src->nak_rpt_ivl)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set NAK_RPT_IVL"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_nak_rdata_ivl (src->transport, src->nak_rdata_ivl)) {
+    if (!pgm_transport_set_nak_rdata_ivl (src->transport, src->nak_rdata_ivl)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set NAK_RDATA_IVL"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_nak_data_retries (src->transport, src->nak_data_retries)) {
+    if (!pgm_transport_set_nak_data_retries (src->transport, src->nak_data_retries)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set NAK_DATA_RETRIES"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_nak_ncf_retries (src->transport, src->nak_ncf_retries)) {
+    if (!pgm_transport_set_nak_ncf_retries (src->transport, src->nak_ncf_retries)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
 	    ("cannot set NAK_NCF_RETRIES"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_bind (src->transport)) {
+    if (!pgm_transport_bind (src->transport, &err)) {
 	GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL),
-	    ("cannot bind transport"));
+	    ("Binding transport: %s", err->message));
 	goto destroy_transport;
     }
 

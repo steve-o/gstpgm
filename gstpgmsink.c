@@ -183,7 +183,7 @@ gst_pgm_sink_nak_thread (
     pgm_msgv_t msgv;
 
     do {
-	pgm_transport_recvmsg (sink->transport, &msgv, 0 /* blocking */);
+	pgm_recvmsg (sink->transport, &msgv, 0, NULL, NULL);
     } while (!sink->nak_quit);
 
     return NULL;
@@ -461,9 +461,10 @@ gst_pgm_sink_render (
 	)
 {
     GstPgmSink* sink = GST_PGM_SINK (basesink);
+    const PGMIOStatus status = pgm_send (sink->transport, GST_BUFFER_DATA (buffer), GST_BUFFER_SIZE (buffer), NULL);
 
-    pgm_transport_send (sink->transport, GST_BUFFER_DATA (buffer), GST_BUFFER_SIZE (buffer), 0);
-
+    if (PGM_IO_STATUS_NORMAL != status)
+	return GST_FLOW_ERROR;
     return GST_FLOW_OK;
 }
 
@@ -475,55 +476,60 @@ gst_pgm_client_sink_start (
 	)
 {
     GstPgmSink* sink = GST_PGM_SINK (basesink);
-    pgm_gsi_t gsi;
-    if (0 != pgm_create_md5_gsi (&gsi)) {
+    struct pgm_transport_info_t* res = NULL;
+    GError* err = NULL;
+
+    if (!pgm_if_get_transport_info (sink->network, NULL, &res, &err)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
-	    ("cannot resolve hostname"));
+	    ("Parsing network parameter: %s", err->message));
+	g_error_free (err);
+	return FALSE;
+    }
+    if (!pgm_gsi_create_from_hostname (&res->ti_gsi, &err)) {
+	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
+	    ("Creating GSI: %s", err->message));
+	g_error_free (err);
+	pgm_if_free_transport_info (res);
 	return FALSE;
     }
 
-    struct group_source_req recv_gsr, send_gsr;
-    int gsr_len = 1;
-    if (0 != pgm_if_parse_transport (sink->network, AF_INET, &recv_gsr, &send_gsr, &gsr_len)) {
-	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
-	    ("cannot parse network parameter"));
-	return FALSE;
-    }
-    if (1 != gsr_len) {
-	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
-	    ("parsing network parameter found more than one device"));
-	return FALSE;
-    }
+    res->ti_udp_encap_ucast_port = sink->udp_encap_port;
+    res->ti_udp_encap_mcast_port = sink->udp_encap_port;
 
-    ((struct sockaddr_in*)&send_gsr.gsr_group)->sin_port = g_htons (sink->udp_encap_port);
-    ((struct sockaddr_in*)&recv_gsr.gsr_source)->sin_port = g_htons (sink->udp_encap_port);
-
-    if (0 != pgm_transport_create (&sink->transport, &gsi, sink->port, &recv_gsr, 1, &send_gsr)) {
+    if (!pgm_transport_create (&sink->transport, res, &err)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
-	    ("cannot create transport"));
+	    ("Creating transport: %s", err->message));
+	pgm_if_free_transport_info (res);
 	return FALSE;
     }
-    if (0 != pgm_transport_set_send_only (sink->transport)) {
+    pgm_if_free_transport_info (res);
+
+    if (!pgm_transport_set_send_only (sink->transport, TRUE)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
-	    ("cannot set receive-only mode"));
+	    ("cannot set send-only mode"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_max_tpdu (sink->transport, sink->max_tpdu)) {
+    if (!pgm_transport_set_max_tpdu (sink->transport, sink->max_tpdu)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
 	    ("cannot set maximum TPDU size"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_hops (sink->transport, sink->hops)) {
+    if (!pgm_transport_set_multicast_loop (sink->transport, TRUE)) {
+	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
+	    ("cannot set multicast loop"));
+	goto destroy_transport;
+    }
+    if (!pgm_transport_set_hops (sink->transport, sink->hops)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
 	    ("cannot set IP hop limit"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_txw_sqns (sink->transport, sink->txw_sqns)) {
+    if (!pgm_transport_set_txw_sqns (sink->transport, sink->txw_sqns)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
 	    ("cannot set TXW_SQNS"));
 	goto destroy_transport;
     }
-    if (0 != pgm_transport_set_ambient_spm (sink->transport, sink->spm_ambient)) {
+    if (!pgm_transport_set_ambient_spm (sink->transport, sink->spm_ambient)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
 	    ("cannot set SPM ambient interval"));
 	goto destroy_transport;
@@ -537,20 +543,20 @@ gst_pgm_client_sink_start (
         for (guint i = 0, j = sink->ihb_min; j < sink->ihb_max; j *= 2) {
         	spm_heartbeat[i++] = j;
         }
-        if (0 != pgm_transport_set_heartbeat_spm (sink->transport, spm_heartbeat, array_len)) {
+        if (!pgm_transport_set_heartbeat_spm (sink->transport, spm_heartbeat, array_len)) {
         	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
         	    ("cannot set SPM heartbeat intervals"));
         	goto destroy_transport;
         }
     }
-    if (0 != pgm_transport_bind (sink->transport)) {
+    if (!pgm_transport_bind (sink->transport, &err)) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
-	    ("cannot bind transport"));
+	    ("Binding transport: %s", err->message));
+	g_error_free (err);
 	goto destroy_transport;
     }
 
 /* create NAK thread */
-    GError* err;
     sink->nak_thread = g_thread_create_full (gst_pgm_sink_nak_thread,
 					     sink,			/* closure */
 					     0,				/* stack size */
@@ -560,7 +566,8 @@ gst_pgm_client_sink_start (
 					     &err);
     if (sink->nak_thread == NULL) {
 	GST_ELEMENT_ERROR (sink, RESOURCE, OPEN_WRITE, (NULL),
-	    ("cannot create NAK processing thread %d/%s", err->code, err->message));
+	    ("Creating NAK processing thread:/%s", err->message));
+	g_error_free (err);
 	goto destroy_transport;
     }
 
