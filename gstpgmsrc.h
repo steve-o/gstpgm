@@ -3,6 +3,7 @@
  * PGM GStreamer-source GObject interface
  *
  * Copyright (c) 2008 Miru Limited.
+ * Copyright (c) 2014 Tim Aerts.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -19,8 +20,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef __GSTPGMSRC_H__
-#define __GSTPGMSRC_H__
+#ifndef GST_PGM_SRC_H
+#define GST_PGM_SRC_H
 
 #include <gst/gst.h>
 #include <gst/base/gstpushsrc.h>
@@ -29,53 +30,47 @@
 
 G_BEGIN_DECLS
 
-#define GST_TYPE_PGM_SRC \
-  (gst_pgm_src_get_type())
-#define GST_PGM_SRC(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PGM_SRC,GstPgmSrc))
-#define GST_PGM_SRC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PGM_SRC,GstPgmSrcClass))
-#define GST_IS_PGM_SRC(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PGM_SRC))
-#define GST_IS_PGM_SRC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PGM_SRC))
+#define GST_TYPE_PGM_SRC            (gst_pgm_src_get_type())
+#define GST_PGM_SRC(obj)            (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_PGM_SRC,GstPgmSrc))
+#define GST_PGM_SRC_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_PGM_SRC,GstPgmSrcClass))
+#define GST_IS_PGM_SRC(obj)         (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_PGM_SRC))
+#define GST_IS_PGM_SRC_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_PGM_SRC))
 
 typedef struct _GstPgmSrc GstPgmSrc;
+typedef struct _GstPgmSrcClass GstPgmSrcClass;
 
 struct _GstPgmSrc
 {
-    GstPushSrc		parent;
-    GstPad*		srcpad;
-    GstCaps*		caps;
+  GstPushSrc  parent;
+  GstPad*     srcpad;
+  GstCaps*    caps;
 
-    pgm_transport_t*	transport;
-    pgm_msgv_t*		msgv;
+  pgm_transport_t*  transport;
+  pgm_msgv_t*       msgv;
 
-    gchar*		network;
-    guint		port;
-    gchar*		uri;
-    guint16		udp_encap_port;
-    guint		max_tpdu;
-    guint		hops;
-    guint		rxw_sqns;
-    guint		peer_expiry;
-    guint		spmr_expiry;
-    guint		nak_bo_ivl;
-    guint		nak_rpt_ivl;
-    guint		nak_rdata_ivl;
-    guint		nak_data_retries;
-    guint		nak_ncf_retries;
+  gchar*  network;
+  guint   port;
+  gchar*  uri;
+  guint16 udp_encap_port;
+  guint   max_tpdu;
+  guint   hops;
+  guint   rxw_sqns;
+  guint   peer_expiry;
+  guint   spmr_expiry;
+  guint   nak_bo_ivl;
+  guint   nak_rpt_ivl;
+  guint   nak_rdata_ivl;
+  guint   nak_data_retries;
+  guint   nak_ncf_retries;
 };
-
-typedef struct _GstPgmSrcClass GstPgmSrcClass;
 
 struct _GstPgmSrcClass
 {
-    GstPushSrcClass parent_class;
+  GstPushSrcClass parent_class;
 };
 
 GType gst_pgm_src_get_type (void);
 
 G_END_DECLS
 
-#endif /* __GSTPGMSRC_H__ */
+#endif // GST_PGM_SRC_H 

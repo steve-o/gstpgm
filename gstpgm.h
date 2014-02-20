@@ -3,6 +3,7 @@
  * PGM GStreamer interface
  *
  * Copyright (c) 2008 Miru Limited.
+ * Copyright (c) 2014 Tim Aerts.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -19,10 +20,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef __GSTPGM_H__
-#define __GSTPGM_H__
+#ifndef GST_PGM_H
+#define GST_PGM_H
+
+#define GST_PACKAGE_ORIGIN "Tim Aerts <jobs@timaerts.be>"
 
 #include "gstpgmsrc.h"
 #include "gstpgmsink.h"
 
-#endif /* __GSTPGM_H__ */
+#endif // GST_PGM_H
