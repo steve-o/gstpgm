@@ -3,6 +3,7 @@
  * PGM GStreamer plugin main
  *
  * Copyright (c) 2008 Miru Limited.
+ * Copyright (c) 2014 Tim Aerts.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -25,41 +26,28 @@
 #include <pgm/pgm.h>
 
 
-/* global locals */
 static gboolean plugin_init (GstPlugin*);
 
-GST_PLUGIN_DEFINE (
-	GST_VERSION_MAJOR,	/* major */
-	GST_VERSION_MINOR,	/* minor */
-	"pgm",			/* short unique name */
-	"PGM connectivity",	/* info */
-	plugin_init,		/* GstPlugin::plugin_init */
-	VERSION,		/* version */
-	"GPL",			/* license */
-	PACKAGE_NAME,		/* package-name, usually the file archive name */
-	"http://miru.hk/"	/* origin */
-	)
+GST_PLUGIN_DEFINE 
+  ( GST_VERSION_MAJOR   // major
+  , GST_VERSION_MINOR   // minor
+  , pgm                 // short unique name
+  , "PGM connectivity"  // info
+  , plugin_init         // GstPlugin::plugin_init
+  , VERSION             // version
+  , "GPL"               // license
+  , GST_PACKAGE_NAME    // package name, usually the file archive name
+  , GST_PACKAGE_ORIGIN  // origin
+  )
 
 
-/* register gstreamer sink and source
- */
-static gboolean
-plugin_init (
-	GstPlugin*	plugin
-	)
+static gboolean plugin_init (GstPlugin* plugin)
 {
-/* startup pgm library */
-    if (!pgm_init (NULL))
-		return FALSE;
+  if (!pgm_init (NULL)) return FALSE;
 
-/* register GStreamer elements */
-    if (!gst_element_register (plugin, "pgmsrc", GST_RANK_NONE, GST_TYPE_PGM_SRC))
-	return FALSE;
+  if (!gst_element_register (plugin, "pgmsrc", GST_RANK_NONE, GST_TYPE_PGM_SRC)) return FALSE;
+  if (!gst_element_register (plugin, "pgmsink", GST_RANK_NONE, GST_TYPE_PGM_SINK)) return FALSE;
 
-    if (!gst_element_register (plugin, "pgmsink", GST_RANK_NONE, GST_TYPE_PGM_SINK))
-	return FALSE;
-
-    return TRUE;
+  return TRUE;
 }
 
-/* eof */
