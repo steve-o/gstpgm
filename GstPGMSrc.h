@@ -45,23 +45,23 @@ struct _GstPgmSrc
   GstPad*     srcpad;
   GstCaps*    caps;
 
-  pgm_transport_t*  transport;
-  pgm_msgv_t*       msgv;
+  struct pgm_sock_t*  sock;
+  struct pgm_msgv_t*  msgv;
 
-  gchar*  network;
-  guint   port;
-  gchar*  uri;
-  guint16 udp_encap_port;
-  guint   max_tpdu;
-  guint   hops;
-  guint   rxw_sqns;
-  guint   peer_expiry;
-  guint   spmr_expiry;
-  guint   nak_bo_ivl;
-  guint   nak_rpt_ivl;
-  guint   nak_rdata_ivl;
-  guint   nak_data_retries;
-  guint   nak_ncf_retries;
+  gchar* network;
+  guint  port;
+  gchar* uri;
+  guint  udp_encap_port;
+  guint  max_tpdu;
+  guint  hops;
+  guint  rxw_sqns;
+  guint  peer_expiry;
+  guint  spmr_expiry;
+  guint  nak_bo_ivl;
+  guint  nak_rpt_ivl;
+  guint  nak_rdata_ivl;
+  guint  nak_data_retries;
+  guint  nak_ncf_retries;
 };
 
 struct _GstPgmSrcClass

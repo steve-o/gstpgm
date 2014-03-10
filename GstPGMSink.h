@@ -44,7 +44,7 @@ struct _GstPgmSink
   GstBaseSink    parent;
   GstPad*        sinkpad;
 
-  pgm_transport_t*  transport;
+  struct pgm_sock_t*  sock;
 
   GThread*    nak_thread;
   gboolean    nak_quit;

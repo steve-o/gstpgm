@@ -1,10 +1,10 @@
 #!/bin/sh
 
-GST_PLUGIN_PATH=. gst-launch-0.10 \
+GST_PLUGIN_PATH=. gst-launch-1.0 \
 	pgmsrc caps="application/x-rtp" ! \
 	rtph263depay ! \
-	ffdec_h263 ! \
+	avdec_h263 ! \
 	videoscale ! \
-	video/x-raw-yuv,width=640,height=480 ! \
+	video/x-raw,width=640,height=480 ! \
 	timeoverlay ! \
 	autovideosink

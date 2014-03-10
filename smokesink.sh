@@ -1,6 +1,6 @@
 #!/bin/sh
 
-GST_PLUGIN_PATH=. gst-launch-0.10 \
+GST_PLUGIN_PATH=. gst-launch-1.0 \
 	pgmsrc ! \
 	smokedec ! \
 	videoscale ! \
