@@ -20,11 +20,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "gstpgm.h"
-#include "config.h"
+#include "GstPGM.h"
+#include "GstPGMConfig.h"
 
 #include <pgm/pgm.h>
-
 
 static gboolean plugin_init (GstPlugin*);
 
@@ -40,12 +39,11 @@ GST_PLUGIN_DEFINE
   , GST_PACKAGE_ORIGIN  // origin
   )
 
-
 static gboolean plugin_init (GstPlugin* plugin)
 {
   if (!pgm_init (NULL)) return FALSE;
 
-  if (!gst_element_register (plugin, "pgmsrc", GST_RANK_NONE, GST_TYPE_PGM_SRC)) return FALSE;
+  if (!gst_element_register (plugin, "pgmsrc" , GST_RANK_NONE, GST_TYPE_PGM_SRC )) return FALSE;
   if (!gst_element_register (plugin, "pgmsink", GST_RANK_NONE, GST_TYPE_PGM_SINK)) return FALSE;
 
   return TRUE;

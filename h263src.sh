@@ -1,12 +1,12 @@
 #!/bin/sh
 
-GST_PLUGIN_PATH=. gst-launch-0.10 \
-	v4lsrc ! \
+GST_PLUGIN_PATH=. gst-launch-1.0 \
+	v4l2src ! \
 	videorate ! \
-	video/x-raw-yuv,framerate=15/1 ! \
+	video/x-raw,framerate=15/1 ! \
 	videoscale ! \
-	video/x-raw-yuv,width=352,height=288 ! \
-	ffenc_h263 ! \
+	video/x-raw,width=352,height=288 ! \
+	avenc_h263 ! \
 	rtph263pay ! \
 	pgmsink
 

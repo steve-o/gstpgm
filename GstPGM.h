@@ -25,7 +25,7 @@
 
 #define GST_PACKAGE_ORIGIN "Tim Aerts <jobs@timaerts.be>"
 
-#include "gstpgmsrc.h"
-#include "gstpgmsink.h"
+#include "GstPGMSrc.h"
+#include "GstPGMSink.h"
 
 #endif // GST_PGM_H

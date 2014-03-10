@@ -25,8 +25,8 @@
 #include <netinet/ip.h>
 #include <pgm/packet.h>
 
-#include "gstpgmsrc.h"
-#include "config.h"
+#include "GstPGMSrc.h"
+#include "GstPGMConfig.h"
 
 enum
 {
@@ -108,8 +108,12 @@ static void gst_pgm_src_update_uri (GstPgmSrc* io_src)
 
 static gboolean gst_pgm_src_set_uri (GstPgmSrc* io_src, const gchar* i_uri)
 {
+  if (!gst_uri_is_valid(i_uri)) return FALSE;
+
   gchar* protocol = gst_uri_get_protocol (i_uri);
   if (strncmp (protocol, "pgm", strlen("pgm")) != 0) goto wrong_protocol;
+
+  {
 
   g_free (protocol);
   gchar* location = gst_uri_get_location (i_uri);
@@ -122,8 +126,8 @@ static gboolean gst_pgm_src_set_uri (GstPgmSrc* io_src, const gchar* i_uri)
   if (port == NULL) 
   {
     io_src->network  = g_strdup (location);
-    io_src->port = PGM_PORT;
-    io_src->udp_encap_port = PGM_UDP_ENCAP_PORT;
+    io_src->port = PGM_DEFAULT_PORT;
+    io_src->udp_encap_port = PGM_DEFAULT_UDP_ENCAP_PORT;
   } 
   else 
   {
@@ -132,7 +136,7 @@ static gboolean gst_pgm_src_set_uri (GstPgmSrc* io_src, const gchar* i_uri)
     gchar* udp_encap_port = strstr (port + 1, ":");
     if (udp_encap_port == NULL) 
     {
-      io_src->udp_encap_port = PGM_UDP_ENCAP_PORT;
+      io_src->udp_encap_port = PGM_DEFAULT_UDP_ENCAP_PORT;
     } 
     else 
     {
@@ -143,6 +147,8 @@ static gboolean gst_pgm_src_set_uri (GstPgmSrc* io_src, const gchar* i_uri)
   
   gst_pgm_src_update_uri (io_src);
   return TRUE;
+
+  }
 
 wrong_protocol:
   g_free (protocol);
@@ -196,8 +202,8 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
         ( "network"
         , "Network"
         , "Rendezvous-style multicast network definition."
-        , PGM_NETWORK
-        , G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+        , PGM_DEFAULT_NETWORK
+        , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
         )
     );
 
@@ -208,10 +214,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
         ( "dport"
         , "DPORT"
         , "Data-destination port."
-        , 0
-        , /* minimum */ UINT16_MAX
-        , /* maximum */ PGM_PORT
-        , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+        , 0 // minimum
+        , UINT16_MAX
+        , PGM_DEFAULT_PORT
+        , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
         )
     );
 
@@ -222,8 +228,8 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
         ( "uri"
         , "URI"
         , "URI in the form of pgm://adapter;receive-multicast-groups;send-multicast-group:destination-port:udp-encapsulation-port"
-        , PGM_URI
-        , G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+        , PGM_DEFAULT_URI
+        , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
         )
     );
   
@@ -235,7 +241,7 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
         , "CAPS"
         , "The caps of the source pad"
         , GST_TYPE_CAPS
-        , G_PARAM_READWRITE
+        , (GParamFlags) G_PARAM_READWRITE
         )
     );
 
@@ -246,10 +252,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "udp-encap-port"
       , "UDP encapsulation port"
       , "UDP port for encapsulation of PGM protocol."
-      , 0
-      , /* minimum */ UINT16_MAX
-      , /* maximum */ PGM_UDP_ENCAP_PORT
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 0 // minimum
+      , UINT16_MAX
+      , PGM_DEFAULT_UDP_ENCAP_PORT
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -260,24 +266,24 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "max-tpdu"
       , "Maximum TPDU"
       , "Largest supported Transport Protocol Data Unit."
-      , (sizeof (struct iphdr) + sizeof (struct pgm_header))
-      , /* minimum */ UINT16_MAX
-      , /* maximum */ PGM_MAX_TPDU
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , (sizeof (struct iphdr) + sizeof (struct pgm_header)) // minimum
+      , UINT16_MAX
+      , PGM_DEFAULT_MAX_TPDU
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
   g_object_class_install_property 
     ( gobjectClass
     , PROP_HOPS
-    , g_param_spec_uint 
+    , g_param_spec_int 
       ( "hops"
       , "Hops"
       , "Multicast packet hop limit."
-      , 1
-      , /* minimum */ UINT8_MAX
-      , /* maximum */ PGM_HOPS
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT8_MAX
+      , PGM_DEFAULT_HOPS
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -288,10 +294,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "rxw-sqns"
       , "RXW_SQNS"
       , "Size of the receive window in sequence numbers."
-      , 1
-      , /* minimum */ UINT16_MAX
-      , /* maximum */ PGM_RXW_SQNS
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT16_MAX
+      , PGM_DEFAULT_RXW_SQNS
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -302,10 +308,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "peer-expiry"
       , "Peer expiry"
       , "Expiration timeout for peers."
-      , 1
-      , /* minimum */ UINT_MAX
-      , /* maximum */ PGM_PEER_EXPIRY
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT_MAX
+      , PGM_DEFAULT_PEER_EXPIRY
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -316,10 +322,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "spmr-expiry"
       , "SPMR expiry"
       , "Maximum back-off range before sending a SPM-Request."
-      , 1
-      , /* minimum */ UINT_MAX
-      , /* maximum */ PGM_SPMR_EXPIRY
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT_MAX
+      , PGM_DEFAULT_SPMR_EXPIRY
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -330,10 +336,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "nak-bo-ivl"
       , "NAK_BO_IVL"
       , "Back-off interval before sending a NAK."
-      , 1
-      , /* minimum */ UINT_MAX
-      , /* maximum */ PGM_NAK_BO_IVL
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT_MAX
+      , PGM_DEFAULT_NAK_BO_IVL
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -344,10 +350,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "nak-rpt-ivl"
       , "NAK_RPT_IVL"
       , "Repeat interval before re-sending a NAK."
-      , 1
-      , /* minimum */ UINT_MAX
-      , /* maximum */ PGM_NAK_RPT_IVL
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT_MAX
+      , PGM_DEFAULT_NAK_RPT_IVL
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -358,10 +364,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "nak-data-ivl"
       , "NAK_RDATA_IVL"
       , "Timeout waiting for data."
-      , 1
-      , /* minimum */ UINT_MAX
-      , /* maximum */ PGM_NAK_RDATA_IVL
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT_MAX
+      , PGM_DEFAULT_NAK_RDATA_IVL
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -372,10 +378,10 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "nak-data-retries"
       , "NAK_DATA_RETRIES"
       , "Maximum number of retries."
-      , 1
-      , /* minimum */ UINT_MAX
-      , /* maximum */ PGM_NAK_DATA_RETRIES
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT_MAX
+      , PGM_DEFAULT_NAK_DATA_RETRIES
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 
@@ -386,32 +392,32 @@ static void gst_pgm_src_class_init (GstPgmSrcClass* klass)
       ( "nak-ncf-retries"
       , "NAK_NCF_RETRIES"
       , "Maximum number of retries."
-      , 1
-      , /* minimum */ UINT_MAX
-      , /* maximum */ PGM_NAK_NCF_RETRIES
-      , /* default */ G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
+      , 1 // minimum
+      , UINT_MAX
+      , PGM_DEFAULT_NAK_NCF_RETRIES
+      , (GParamFlags) G_PARAM_READWRITE /*| G_PARAM_CONSTRUCT_ONLY*/
       )
     );
 }
 
 static void gst_pgm_src_init (GstPgmSrc* io_src)
 {
-    io_src->transport = NULL;
+    io_src->sock = NULL;
 
-    io_src->network          = g_strdup (PGM_NETWORK);
-    io_src->port             = PGM_PORT;
-    io_src->uri              = g_strdup (PGM_URI);
-    io_src->udp_encap_port   = PGM_UDP_ENCAP_PORT;
-    io_src->max_tpdu         = PGM_MAX_TPDU;
-    io_src->hops             = PGM_HOPS;
-    io_src->rxw_sqns         = PGM_RXW_SQNS;
-    io_src->peer_expiry      = PGM_PEER_EXPIRY;
-    io_src->spmr_expiry      = PGM_SPMR_EXPIRY;
-    io_src->nak_bo_ivl       = PGM_NAK_BO_IVL;
-    io_src->nak_rpt_ivl      = PGM_NAK_RPT_IVL;
-    io_src->nak_rdata_ivl    = PGM_NAK_RDATA_IVL;
-    io_src->nak_data_retries = PGM_NAK_DATA_RETRIES;
-    io_src->nak_ncf_retries  = PGM_NAK_NCF_RETRIES;
+    io_src->network          = g_strdup (PGM_DEFAULT_NETWORK);
+    io_src->port             = PGM_DEFAULT_PORT;
+    io_src->uri              = g_strdup (PGM_DEFAULT_URI);
+    io_src->udp_encap_port   = PGM_DEFAULT_UDP_ENCAP_PORT;
+    io_src->max_tpdu         = PGM_DEFAULT_MAX_TPDU;
+    io_src->hops             = PGM_DEFAULT_HOPS;
+    io_src->rxw_sqns         = PGM_DEFAULT_RXW_SQNS;
+    io_src->peer_expiry      = PGM_DEFAULT_PEER_EXPIRY;
+    io_src->spmr_expiry      = PGM_DEFAULT_SPMR_EXPIRY;
+    io_src->nak_bo_ivl       = PGM_DEFAULT_NAK_BO_IVL;
+    io_src->nak_rpt_ivl      = PGM_DEFAULT_NAK_RPT_IVL;
+    io_src->nak_rdata_ivl    = PGM_DEFAULT_NAK_RDATA_IVL;
+    io_src->nak_data_retries = PGM_DEFAULT_NAK_DATA_RETRIES;
+    io_src->nak_ncf_retries  = PGM_DEFAULT_NAK_NCF_RETRIES;
 
 /* ensure source provides live, time based output, with timestamps */
     gst_base_src_set_live (GST_BASE_SRC (io_src), TRUE);
@@ -457,7 +463,7 @@ static void gst_pgm_src_set_property (GObject* io_obj, guint i_propId, const GVa
     g_free (src->network);
     if (g_value_get_string (i_value) == NULL)
     {
-      src->network = g_strdup (PGM_NETWORK);
+      src->network = g_strdup (PGM_DEFAULT_NETWORK);
     }
     else
     {
@@ -608,20 +614,18 @@ static GstFlowReturn gst_pgm_src_create ( GstPushSrc* pushsrc, GstBuffer** buffe
   GstPgmSrc* src = GST_PGM_SRC(pushsrc);
 
   /* read in waiting data */
-  pgm_msgv_t msgv;
-  gsize len;
-  GError* err = NULL;
-  const PGMIOStatus status = pgm_recvmsg (src->transport, &msgv, 0, &len, &err);
+  struct pgm_msgv_t msgv;
+  size_t len;
+  struct pgm_error_t* pErr = NULL;
+  int status = pgm_recvmsg (src->sock, &msgv, 0, &len, &pErr);
 
   if (PGM_IO_STATUS_NORMAL != status) 
   {
     puts ("read not normal");
-    GST_ELEMENT_ERROR (src, RESOURCE, READ, (NULL), ("Receive error: %s)", err->message));
-    g_error_free (err);
+    GST_ELEMENT_ERROR (src, RESOURCE, READ, (NULL), ("Receive error: %s)", pErr->message));
+    pgm_error_free (pErr);
     return GST_FLOW_ERROR;
   }
-
-  puts ("good read");
 
   /* try to allocate memory from GStreamer pool */
   *buffer = gst_buffer_new_and_alloc (len);
@@ -637,14 +641,11 @@ static GstFlowReturn gst_pgm_src_create ( GstPushSrc* pushsrc, GstBuffer** buffe
   guint8* dst = map.data;
   for (unsigned j = 0; j < msgv.msgv_len; j++)
   {
-    printf ("copy #%d len %d\n", j, (int)len);
     memcpy (dst, msgv.msgv_skb[j]->data, msgv.msgv_skb[j]->len);
     dst += msgv.msgv_skb[j]->len;
     len -= msgv.msgv_skb[j]->len;
   }
   gst_buffer_unmap (*buffer, &map);
-
-  puts ("copy end");
 
   //?gst_buffer_set_caps (GST_BUFFER_CAST (*buffer), src->caps);
 
@@ -657,120 +658,191 @@ static gboolean gst_pgm_client_src_start ( GstBaseSrc* basesrc)
 {
   GstPgmSrc* src = GST_PGM_SRC (basesrc);
 
-  struct pgm_transport_info_t* res = NULL;
-  GError* err = NULL;
+  const int valTrue  = 1;
+  const int valFalse = 0;
 
-  if (!pgm_if_get_transport_info (src->network, NULL, &res, &err)) 
+	sa_family_t sa_family = AF_UNSPEC;
+  struct pgm_addrinfo_t* res = NULL;
+  struct pgm_error_t* pErr = NULL;
+
+	if (!pgm_init (&pErr)) {
+		g_error ("Unable to start PGM engine: %s", pErr->message);
+		pgm_error_free (pErr);
+		goto destroy_transport;
+	}
+
+  if (!pgm_getaddrinfo (src->network, NULL, &res, &pErr)) 
   {
-    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("Parsing network parameter: %s", err->message));
-    g_error_free (err);
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("Parsing network parameter: %s", pErr->message));
+    pgm_error_free (pErr);
     return FALSE;
   }
 
-  if (!pgm_gsi_create_from_hostname (&res->ti_gsi, &err)) 
+	sa_family = res->ai_send_addrs[0].gsr_group.ss_family;
+
+  if (!pgm_socket (&src->sock, sa_family, SOCK_SEQPACKET, IPPROTO_UDP, &pErr)) 
   {
-    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("Creating GSI: %s", err->message)); g_error_free (err);
-    pgm_if_free_transport_info (res);
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("Creating transport: %s", pErr->message));
+    pgm_error_free (pErr);
+    pgm_freeaddrinfo (res);
     return FALSE;
   }
 
-  res->ti_udp_encap_ucast_port = src->udp_encap_port;
-  res->ti_udp_encap_mcast_port = src->udp_encap_port;
-
-  if (!pgm_transport_create (&src->transport, res, &err)) 
-  {
-    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("Creating transport: %s", err->message));
-    g_error_free (err);
-    pgm_if_free_transport_info (res);
-    return FALSE;
-  }
-
-  pgm_if_free_transport_info (res);
-
-  if (!pgm_transport_set_recv_only (src->transport, TRUE, FALSE)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_RECV_ONLY, &valTrue, sizeof(valTrue))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set receive-only mode"));
     goto destroy_transport;
   }
 
-  if (!pgm_transport_set_max_tpdu (src->transport, src->max_tpdu)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_MTU, &src->max_tpdu, sizeof(src->max_tpdu))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set maximum TPDU size"));
     goto destroy_transport;
   }
   
-  if (!pgm_transport_set_multicast_loop (src->transport, TRUE)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_MULTICAST_LOOP, &valTrue, sizeof(valTrue))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set multicast loop"));
     goto destroy_transport;
   }
   
-  if (!pgm_transport_set_hops (src->transport, src->hops)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_MULTICAST_HOPS, &src->hops, sizeof(src->hops))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set IP hop limit"));
     goto destroy_transport;
   }
 
-  if (!pgm_transport_set_rxw_sqns (src->transport, src->rxw_sqns)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_RXW_SQNS, &src->rxw_sqns, sizeof(src->rxw_sqns))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set RXW_SQNS"));
     goto destroy_transport;
   }
 
-  if (!pgm_transport_set_peer_expiry (src->transport, src->peer_expiry)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_PEER_EXPIRY, &src->peer_expiry, sizeof(src->peer_expiry))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set peer expiration timeout"));
     goto destroy_transport;
   }
 
-  if (!pgm_transport_set_spmr_expiry (src->transport, src->spmr_expiry)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_SPMR_EXPIRY, &src->spmr_expiry, sizeof(src->spmr_expiry))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set SPMR timeout"));
     goto destroy_transport;
   }
 
-  if (!pgm_transport_set_nak_bo_ivl (src->transport, src->nak_bo_ivl)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_NAK_BO_IVL, &src->nak_bo_ivl, sizeof(src->nak_bo_ivl))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set NAK_BO_IVL"));
     goto destroy_transport;
   }
 
-  if (!pgm_transport_set_nak_rpt_ivl (src->transport, src->nak_rpt_ivl)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_NAK_RPT_IVL, &src->nak_rpt_ivl, sizeof(src->nak_rpt_ivl))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set NAK_RPT_IVL"));
     goto destroy_transport;
   }
   
-  if (!pgm_transport_set_nak_rdata_ivl (src->transport, src->nak_rdata_ivl)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_NAK_RDATA_IVL, &src->nak_rdata_ivl, sizeof(src->nak_rdata_ivl))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set NAK_RDATA_IVL"));
     goto destroy_transport;
   }
   
-  if (!pgm_transport_set_nak_data_retries (src->transport, src->nak_data_retries)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_NAK_DATA_RETRIES, &src->nak_data_retries, sizeof(src->nak_data_retries))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set NAK_DATA_RETRIES"));
     goto destroy_transport;
   }
   
-  if (!pgm_transport_set_nak_ncf_retries (src->transport, src->nak_ncf_retries)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_NAK_NCF_RETRIES, &src->nak_ncf_retries, sizeof(src->nak_ncf_retries))) 
   {
     GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("cannot set NAK_NCF_RETRIES"));
     goto destroy_transport;
   }
   
-  if (!pgm_transport_bind (src->transport, &err)) 
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_UDP_ENCAP_UCAST_PORT, &src->udp_encap_port, sizeof(src->udp_encap_port)))
   {
-    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_READ, (NULL), ("Binding transport: %s", err->message));
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_WRITE, (NULL), ("cannot set UDP encap ucast port"));
     goto destroy_transport;
   }
+  
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_UDP_ENCAP_MCAST_PORT, &src->udp_encap_port, sizeof(src->udp_encap_port)))
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_WRITE, (NULL), ("cannot set UDP encap mcast port"));
+    goto destroy_transport;
+  }
+
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_PASSIVE, &valFalse, sizeof(valFalse))) 
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_WRITE, (NULL), ("cannot unset passive"));
+    goto destroy_transport;
+  }
+
+  if (!pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_IP_ROUTER_ALERT, &valFalse, sizeof(valFalse))) 
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_WRITE, (NULL), ("cannot unset the router assist"));
+    goto destroy_transport;
+  }
+
+
+  struct pgm_sockaddr_t addr;
+  memset (&addr, '\0', sizeof(addr));
+  addr.sa_port = src->port;
+  addr.sa_addr.sport = DEFAULT_DATA_SOURCE_PORT;
+
+  if (!pgm_gsi_create_from_hostname (&addr.sa_addr.gsi, &pErr))
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_WRITE, (NULL), ("Creating GSI: %s", pErr->message));
+    pgm_error_free (pErr);
+    pgm_freeaddrinfo (res);
+    return FALSE;
+  }
+
+  struct pgm_interface_req_t ifReq;
+  memset (&ifReq, '\0', sizeof(ifReq));
+  ifReq.ir_interface = res->ai_recv_addrs[0].gsr_interface;
+  ifReq.ir_scope_id  = 0;
+
+	if (AF_INET6 == sa_family) 
+  {
+		struct sockaddr_in6 sa6;
+		memcpy (&sa6, &res->ai_recv_addrs[0].gsr_group, sizeof(sa6));
+		ifReq.ir_scope_id = sa6.sin6_scope_id;
+	}
+
+  if (!pgm_bind3 ( src->sock
+                 , &addr, sizeof(addr)
+                 , &ifReq, sizeof(ifReq)  // tx interface
+                 , &ifReq, sizeof(ifReq)  // rx interface
+                 , &pErr
+                 )
+     )
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_WRITE, (NULL), ("Binding transport: %s", pErr->message));
+    pgm_error_free (pErr);
+    goto destroy_transport;
+  }
+
+	for (unsigned i = 0; i < res->ai_recv_addrs_len; ++i)
+  {
+		pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_JOIN_GROUP, &res->ai_recv_addrs[i], sizeof(struct group_req));
+  }
+	pgm_setsockopt (src->sock, IPPROTO_PGM, PGM_SEND_GROUP, &res->ai_send_addrs[0], sizeof(struct group_req));
+	pgm_freeaddrinfo (res);
+
+	if (!pgm_connect (src->sock, &pErr))
+  {
+    GST_ELEMENT_ERROR (src, RESOURCE, OPEN_WRITE, (NULL), ("Connecting socket: %s", pErr->message));
+    pgm_error_free (pErr);
+    goto destroy_transport;
+	}
 
   return TRUE;
 
 destroy_transport:
 
-  pgm_transport_destroy (src->transport, TRUE);
-  src->transport = NULL;
+  pgm_close (src->sock, TRUE);
+  src->sock = NULL;
   return FALSE;
 }
 
@@ -782,10 +854,10 @@ static gboolean gst_pgm_client_src_stop (GstBaseSrc* io_basesrc)
 
   GST_DEBUG_OBJECT (src, "destroying transport");
 
-  if (src->transport) 
+  if (src->sock) 
   {
-    pgm_transport_destroy (src->transport, TRUE);
-    src->transport = NULL;
+    pgm_close (src->sock, TRUE);
+    src->sock = NULL;
   }
 
   return TRUE;
